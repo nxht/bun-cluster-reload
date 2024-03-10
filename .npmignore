@@ -1,0 +1,13 @@
+.git
+.gitignore
+
+.dprint.jsonc
+eslint.config.js
+
+bun.lockb
+
+e2e/
+src/
+
+node_modules
+tsconfig.*

@@ -1,7 +1,7 @@
 import pino from 'pino';
 const port = process.env.PORT;
 
-const logger = pino({ transport: { target: 'pino-pretty' } });
+const logger = pino({ level: 'debug', transport: { target: 'pino-pretty' } });
 logger.info(`Bun.serve at port ${port}`);
 
 Bun.serve({

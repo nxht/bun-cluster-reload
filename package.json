@@ -1,9 +1,26 @@
 {
   "name": "bun-cluster-reload",
+  "version": "0.0.1-beta.1",
+  "description": "pm2-like cluster and reload for bun",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nxht/bun-cluster-reload.git"
+  },
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "exports": {
+    "bun": "./dist/index.js",
+    "require": "./dist/index.js",
+    "import": "./dist/index.js",
+    "node": "./dist/index.js",
+    "default": "./dist/index.js"
+  },
+  "types": "./dist/index.d.ts",
   "module": "src/index.ts",
   "type": "module",
   "scripts": {
-    "e2e": "bun e2e/cluster.ts"
+    "e2e": "bun e2e/cluster.ts",
+    "build": "rm dist -rf && bun build src/**.ts --outdir ./dist --target bun && bun tsc -p tsconfig.build.json"
   },
   "devDependencies": {
     "@types/bun": "latest",
