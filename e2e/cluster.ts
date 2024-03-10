@@ -1,15 +1,16 @@
-import pino from 'pino';
 import { ClusterRunner } from '../src/index';
 
 const clusterRunner = new ClusterRunner({
   numCPUs: 2,
-  logger: pino({ level: 'debug', transport: { target: 'pino-pretty' } }),
+  logger: console,
+  autorestart: true,
+  waitReady: true,
 });
 
 await clusterRunner.start({
-  command: ['bun', 'e2e/index.ts'],
+  command: ['bun', 'src/index.ts'],
   reloadSignal: 'SIGHUP',
-  updateEnv: true,
+  updateEnv: false,
 });
 
 await Bun.sleep(3000);
