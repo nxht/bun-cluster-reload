@@ -1,4 +1,4 @@
-import type { Subprocess } from 'bun';
+import type { SpawnOptions, Subprocess } from 'bun';
 import { cpus } from 'node:os';
 import type { Logger } from 'pino';
 import { LogWrapper } from './log-wrapper';
@@ -10,13 +10,15 @@ export type ClusterRunnerOptions = {
   waitReady?: boolean;
 };
 
+type SubprocessOption = { command: string[] } & SpawnOptions.OptionsObject;
+
 export class ClusterRunner {
   logger: LogWrapper;
   numCPUs: number;
   autorestart?: boolean;
   waitReady?: boolean;
 
-  subprocessList: [string[], Subprocess][] = [];
+  subprocessList: [SubprocessOption, Subprocess][] = [];
 
   constructor({ logger, numCPUs, ...options }: ClusterRunnerOptions) {
     this.logger = new LogWrapper(logger);
@@ -44,12 +46,11 @@ export class ClusterRunner {
         : ` failed with exit code ${exitCode}`);
   }
 
-  async startSubprocess(command: string[], i: number) {
+  async startSubprocess(i: number, { command, ...options }: SubprocessOption) {
     if (this.waitReady) {
       return new Promise<Subprocess>((resolve, reject) =>
         Bun.spawn(command, {
           stdio: ['inherit', 'inherit', 'inherit'],
-          env: {},
           ipc: (message, subprocess) => {
             if (this.waitReady) {
               if (message === 'ready') {
@@ -65,8 +66,8 @@ export class ClusterRunner {
 
                     if (this.autorestart && !subprocess.signalCode) {
                       this.subprocessList[i] = [
-                        command,
-                        await this.startSubprocess(command, i),
+                        { command, ...options },
+                        await this.startSubprocess(i, { command }),
                       ];
                     }
                   }
@@ -90,12 +91,12 @@ export class ClusterRunner {
               );
             }
           },
+          ...options,
         })
       );
     } else {
       return Bun.spawn(command, {
         stdio: ['inherit', 'inherit', 'inherit'],
-        env: {},
         onExit: (subprocess, exitCode, signalCode, error) => {
           if (exitCode !== 0) {
             throw new Error(
@@ -108,20 +109,25 @@ export class ClusterRunner {
             );
           }
         },
+        ...options,
       });
     }
   }
 
   async start(
-    { command, reloadSignal }: {
-      command: string[];
+    { command, reloadSignal, reloadEnv, ...options }: {
       reloadSignal?: NodeJS.Signals;
-    },
+      reloadEnv?: boolean;
+    } & SubprocessOption,
   ) {
+    if (reloadEnv && !options.env) {
+      options.env = {};
+    }
+
     for (let i = 0; i < this.numCPUs; i++) {
       this.subprocessList.push([
-        command,
-        await this.startSubprocess(command, i),
+        { command, ...options },
+        await this.startSubprocess(i, { command, ...options }),
       ]);
     }
 
@@ -137,13 +143,13 @@ export class ClusterRunner {
 
   async reload() {
     for (let i = 0; i < this.subprocessList.length; i++) {
-      const [command, p] = this.subprocessList[i];
+      const [options, p] = this.subprocessList[i];
       p.kill();
       await p.exited;
 
       this.subprocessList[i] = [
-        command,
-        await this.startSubprocess(command, i),
+        options,
+        await this.startSubprocess(i, options),
       ];
     }
   }
