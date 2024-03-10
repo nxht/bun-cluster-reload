@@ -8,19 +8,9 @@ import tslint from 'typescript-eslint';
 const config = {
   ignores: ['ecosystem.config.cjs'],
   languageOptions: {
-    parserOptions: {
-      project: true,
-      tsconfigRootDir: import.meta.dirname,
-    },
+    parserOptions: { project: true, tsconfigRootDir: import.meta.dirname },
   },
-  rules: {
-    '@typescript-eslint/no-unnecessary-condition': 'off',
-    '@typescript-eslint/no-unused-vars': 'warn',
-    '@typescript-eslint/require-await': 'warn',
-
-    '@typescript-eslint/consistent-type-definitions': ['warn', 'type'],
-    '@typescript-eslint/consistent-type-imports': 'warn',
-  },
+  rules: { '@typescript-eslint/consistent-type-definitions': ['warn', 'type'] },
 };
 
 export default tslint.config(
