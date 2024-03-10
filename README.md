@@ -17,7 +17,7 @@ bun add bun-cluster-reload
 ## Example
 
 ```typescript
-import { ClusterRunner } from '../src/index';
+import { ClusterRunner } from 'bun-cluster-reload';
 
 const clusterRunner = new ClusterRunner({
   numCPUs: 2,
