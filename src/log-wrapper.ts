@@ -1,8 +1,10 @@
 import { type DebugLogger, debuglog } from 'node:util';
-import { type Logger } from 'pino';
+import { type Logger as PinoLogger } from 'pino';
+
+export type Logger = PinoLogger | DebugLogger | Console;
 
 export class LogWrapper {
-  logger: Logger | DebugLogger;
+  logger: Logger;
 
   constructor(logger?: Logger) {
     this.logger = logger ?? debuglog('bun-cluster-reload');

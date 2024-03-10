@@ -1,7 +1,6 @@
 import type { SpawnOptions, Subprocess } from 'bun';
 import { cpus } from 'node:os';
-import type { Logger } from 'pino';
-import { LogWrapper } from './log-wrapper';
+import { LogWrapper, type Logger } from './log-wrapper';
 
 export type ClusterRunnerOptions = {
   logger?: Logger;
@@ -14,9 +13,9 @@ type SubprocessOption = { command: string[] } & SpawnOptions.OptionsObject;
 
 export class ClusterRunner {
   logger: LogWrapper;
-  numCPUs: number;
-  autorestart?: boolean;
-  waitReady?: boolean;
+  readonly numCPUs: number;
+  readonly autorestart?: boolean;
+  readonly waitReady?: boolean;
 
   subprocessList: [SubprocessOption, Subprocess][] = [];
 

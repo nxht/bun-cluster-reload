@@ -2,6 +2,9 @@
   "name": "bun-cluster-reload",
   "module": "src/index.ts",
   "type": "module",
+  "scripts": {
+    "e2e": "bun e2e/cluster.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/eslint": "^8.56.5",
