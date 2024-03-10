@@ -6,13 +6,15 @@ import { LogWrapper } from './log-wrapper';
 export type ClusterRunnerOptions = {
   logger?: Logger;
   numCPUs: number;
-  restartOnError: boolean;
+  autorestart?: boolean;
+  waitReady?: boolean;
 };
 
 export class ClusterRunner {
   logger: LogWrapper;
   numCPUs: number;
-  options: Omit<ClusterRunnerOptions, 'logger' | 'numCPUs'>;
+  autorestart?: boolean;
+  waitReady?: boolean;
 
   subprocessList: [string[], Subprocess][] = [];
 
@@ -25,10 +27,11 @@ export class ClusterRunner {
       this.numCPUs = numCPUs;
     }
 
-    this.options = options;
+    this.autorestart = options.autorestart ?? true;
+    this.waitReady = options.waitReady ?? true;
   }
 
-  private getExitMessage(
+  getExitMessage(
     { pid, signalCode, exitCode }: {
       pid: number;
       signalCode: NodeJS.Signals | number | null;
@@ -41,51 +44,72 @@ export class ClusterRunner {
         : ` failed with exit code ${exitCode}`);
   }
 
-  private async startSubprocess(command: string[], i: number) {
-    return new Promise<Subprocess>((resolve, reject) =>
-      Bun.spawn(command, {
-        stdio: ['inherit', 'inherit', 'inherit'],
-        env: {},
-        ipc: (message, subprocess) => {
-          if (message === 'ready') {
-            subprocess.exited.then(async (exitCode) => {
-              if (exitCode !== 0) {
-                this.logger.error(
+  async startSubprocess(command: string[], i: number) {
+    if (this.waitReady) {
+      return new Promise<Subprocess>((resolve, reject) =>
+        Bun.spawn(command, {
+          stdio: ['inherit', 'inherit', 'inherit'],
+          env: {},
+          ipc: (message, subprocess) => {
+            if (this.waitReady) {
+              if (message === 'ready') {
+                subprocess.exited.then(async (exitCode) => {
+                  if (exitCode !== 0) {
+                    this.logger.error(
+                      this.getExitMessage({
+                        pid: subprocess.pid,
+                        signalCode: subprocess.signalCode,
+                        exitCode,
+                      }),
+                    );
+
+                    if (this.autorestart && !subprocess.signalCode) {
+                      this.subprocessList[i] = [
+                        command,
+                        await this.startSubprocess(command, i),
+                      ];
+                    }
+                  }
+                }).catch(() => null);
+
+                resolve(subprocess);
+              }
+            }
+          },
+          onExit: (subprocess, exitCode, signalCode, error) => {
+            if (exitCode !== 0) {
+              reject(
+                new Error(
                   this.getExitMessage({
                     pid: subprocess.pid,
-                    signalCode: subprocess.signalCode,
+                    signalCode,
                     exitCode,
                   }),
-                );
-
-                if (this.options.restartOnError && !subprocess.signalCode) {
-                  this.subprocessList[i] = [
-                    command,
-                    await this.startSubprocess(command, i),
-                  ];
-                }
-              }
-            }).catch(() => null);
-
-            resolve(subprocess);
-          }
-        },
+                  { cause: error },
+                ),
+              );
+            }
+          },
+        })
+      );
+    } else {
+      return Bun.spawn(command, {
+        stdio: ['inherit', 'inherit', 'inherit'],
+        env: {},
         onExit: (subprocess, exitCode, signalCode, error) => {
           if (exitCode !== 0) {
-            reject(
-              new Error(
-                this.getExitMessage({
-                  pid: subprocess.pid,
-                  signalCode,
-                  exitCode,
-                }),
-                { cause: error },
-              ),
+            throw new Error(
+              this.getExitMessage({
+                pid: subprocess.pid,
+                signalCode,
+                exitCode,
+              }),
+              { cause: error },
             );
           }
         },
-      })
-    );
+      });
+    }
   }
 
   async start(
