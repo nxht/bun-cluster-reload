@@ -1,6 +1,8 @@
-const port = 3000;
+import pino from 'pino';
+const port = process.env.PORT;
 
-console.log(`[${process.pid}] Bun.serve at port ${port}`);
+const logger = pino({ transport: { target: 'pino-pretty' } });
+logger.info(`Bun.serve at port ${port}`);
 
 Bun.serve({
   port: port,

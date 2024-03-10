@@ -12,6 +12,7 @@
     "dprint": "^0.45.0",
     "eslint": "^8.57.0",
     "pino": "^8.19.0",
+    "pino-pretty": "^10.3.1",
     "typescript-eslint": "^7.1.1"
   },
   "peerDependencies": {
