@@ -1,0 +1,34 @@
+import { type DebugLogger, debuglog } from 'node:util';
+import { type Logger } from 'pino';
+
+export class LogWrapper {
+  logger: Logger | DebugLogger;
+
+  constructor(logger?: Logger) {
+    this.logger = logger ?? debuglog('bun-cluster-reload');
+  }
+
+  debug(msg: string) {
+    if ('debug' in this.logger) {
+      this.logger.debug(msg);
+    } else {
+      this.logger(msg);
+    }
+  }
+
+  warn(msg: string) {
+    if ('warn' in this.logger) {
+      this.logger.warn(msg);
+    } else {
+      this.logger(msg);
+    }
+  }
+
+  error(msg: string) {
+    if ('error' in this.logger) {
+      this.logger.error(msg);
+    } else {
+      this.logger(msg);
+    }
+  }
+}

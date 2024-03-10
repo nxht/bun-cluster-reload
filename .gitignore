@@ -1,0 +1,8 @@
+# Dependency directories
+node_modules/
+
+# lockfile
+bun.lockb
+
+# dotenv environment variable files
+.env

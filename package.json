@@ -1,0 +1,17 @@
+{
+  "name": "bun-cluster-reload",
+  "module": "src/index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/eslint": "^8.56.5",
+    "@types/eslint__js": "^8.42.3",
+    "dprint": "^0.45.0",
+    "eslint": "^8.57.0",
+    "pino": "^8.19.0",
+    "typescript-eslint": "^7.1.1"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
