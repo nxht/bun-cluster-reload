@@ -1,24 +1,49 @@
 import type { Subprocess } from 'bun';
+import { cpus } from 'node:os';
 import type { Logger } from 'pino';
 import { LogWrapper } from './log-wrapper';
 
-export class ClusterRunner {
+export type ClusterRunnerOptions = {
+  logger?: Logger;
   numCPUs: number;
-  command: string[];
+  restartOnError: boolean;
+};
+
+export class ClusterRunner {
   logger: LogWrapper;
+  numCPUs: number;
+  options: Omit<ClusterRunnerOptions, 'logger' | 'numCPUs'>;
 
-  subprocessList: Subprocess[] = [];
+  subprocessList: [string[], Subprocess][] = [];
 
-  constructor({ numCPUs, logger }: { numCPUs: number; logger?: Logger }) {
-    this.numCPUs = numCPUs;
+  constructor({ logger, numCPUs, ...options }: ClusterRunnerOptions) {
     this.logger = new LogWrapper(logger);
 
-    this.command = ['bun', 'src/index.ts'];
+    if (numCPUs <= 0) {
+      this.numCPUs = cpus().length + numCPUs;
+    } else {
+      this.numCPUs = numCPUs;
+    }
+
+    this.options = options;
   }
 
-  private async startSubprocess(i: number) {
+  private getExitMessage(
+    { pid, signalCode, exitCode }: {
+      pid: number;
+      signalCode: NodeJS.Signals | number | null;
+      exitCode: number | null;
+    },
+  ) {
+    return `Process ${pid}`
+      + (signalCode
+        ? ` terminated with signal ${signalCode}`
+        : ` failed with exit code ${exitCode}`);
+  }
+
+  private async startSubprocess(command: string[], i: number) {
     return new Promise<Subprocess>((resolve, reject) =>
-      Bun.spawn(this.command, {
+      Bun.spawn(command, {
         stdio: ['inherit', 'inherit', 'inherit'],
         env: {},
         ipc: (message, subprocess) => {
@@ -26,15 +51,18 @@ export class ClusterRunner {
             subprocess.exited.then(async (exitCode) => {
               if (exitCode !== 0) {
                 this.logger.error(
-                  `Process ${subprocess.pid}` + (subprocess.signalCode
-                    ? ` terminated with signal ${subprocess.signalCode}`
-                    : ` failed with exit code ${exitCode}`),
+                  this.getExitMessage({
+                    pid: subprocess.pid,
+                    signalCode: subprocess.signalCode,
+                    exitCode,
+                  }),
                 );
-                // Auto-restart on error
-                if (!subprocess.signalCode) {
-                  this.subprocessList[i] = await this.startSubprocess(
-                    i,
-                  );
+
+                if (this.options.restartOnError && !subprocess.signalCode) {
+                  this.subprocessList[i] = [
+                    command,
+                    await this.startSubprocess(command, i),
+                  ];
                 }
               }
             }).catch(() => null);
@@ -46,9 +74,11 @@ export class ClusterRunner {
           if (exitCode !== 0) {
             reject(
               new Error(
-                `Process ${subprocess.pid}` + (signalCode
-                  ? ` terminated with signal ${signalCode}`
-                  : ` failed with exit code ${exitCode}`),
+                this.getExitMessage({
+                  pid: subprocess.pid,
+                  signalCode,
+                  exitCode,
+                }),
                 { cause: error },
               ),
             );
@@ -58,11 +88,17 @@ export class ClusterRunner {
     );
   }
 
-  async start({ reloadSignal }: { reloadSignal?: NodeJS.Signals }) {
+  async start(
+    { command, reloadSignal }: {
+      command: string[];
+      reloadSignal?: NodeJS.Signals;
+    },
+  ) {
     for (let i = 0; i < this.numCPUs; i++) {
-      this.subprocessList.push(
-        await this.startSubprocess(i),
-      );
+      this.subprocessList.push([
+        command,
+        await this.startSubprocess(command, i),
+      ]);
     }
 
     if (reloadSignal) {
@@ -77,11 +113,14 @@ export class ClusterRunner {
 
   async reload() {
     for (let i = 0; i < this.subprocessList.length; i++) {
-      const p = this.subprocessList[i];
+      const [command, p] = this.subprocessList[i];
       p.kill();
       await p.exited;
 
-      this.subprocessList[i] = await this.startSubprocess(i);
+      this.subprocessList[i] = [
+        command,
+        await this.startSubprocess(command, i),
+      ];
     }
   }
 }
