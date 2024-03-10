@@ -115,12 +115,12 @@ export class ClusterRunner {
   }
 
   async start(
-    { command, reloadSignal, reloadEnv, ...options }: {
+    { command, reloadSignal, updateEnv, ...options }: {
       reloadSignal?: NodeJS.Signals;
-      reloadEnv?: boolean;
+      updateEnv?: boolean;
     } & SubprocessOption,
   ) {
-    if (reloadEnv && !options.env) {
+    if (updateEnv && !options.env) {
       options.env = {};
     }
 
