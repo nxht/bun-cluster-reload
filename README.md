@@ -1,6 +1,6 @@
 # bun-cluster-reload
 
-pm2-like cluster and reload for bun
+pm2-like cluster with reload for bun
 
 ## Installation
 
