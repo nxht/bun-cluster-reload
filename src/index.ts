@@ -46,9 +46,12 @@ export class ClusterRunner {
         : ` failed with exit code ${exitCode}`);
   }
 
-  async startSubprocess(i: number, { command, ...options }: SubprocessOption) {
+  async startSubprocess(
+    i: number,
+    { command, ...options }: SubprocessOption,
+  ): Promise<[SubprocessOption, Subprocess]> {
     if (this.waitReady) {
-      return new Promise<Subprocess>((resolve, reject) =>
+      return new Promise<[SubprocessOption, Subprocess]>((resolve, reject) =>
         Bun.spawn(command, {
           stdio: ['inherit', 'inherit', 'inherit'],
           ipc: (message, subprocess) => {
@@ -65,15 +68,15 @@ export class ClusterRunner {
                     );
 
                     if (this.autorestart && !subprocess.signalCode) {
-                      this.subprocessList[i] = [
-                        { command, ...options },
-                        await this.startSubprocess(i, { command }),
-                      ];
+                      this.subprocessList[i] = await this.startSubprocess(i, {
+                        command,
+                        ...options,
+                      });
                     }
                   }
                 }).catch(() => null);
 
-                resolve(subprocess);
+                resolve([{ command, ...options }, subprocess]);
               }
             }
           },
@@ -95,22 +98,25 @@ export class ClusterRunner {
         })
       );
     } else {
-      return Bun.spawn(command, {
-        stdio: ['inherit', 'inherit', 'inherit'],
-        onExit: (subprocess, exitCode, signalCode, error) => {
-          if (exitCode !== 0) {
-            throw new Error(
-              this.getExitMessage({
-                pid: subprocess.pid,
-                signalCode,
-                exitCode,
-              }),
-              { cause: error },
-            );
-          }
-        },
-        ...options,
-      });
+      return [
+        { command, ...options },
+        Bun.spawn(command, {
+          stdio: ['inherit', 'inherit', 'inherit'],
+          onExit: (subprocess, exitCode, signalCode, error) => {
+            if (exitCode !== 0) {
+              throw new Error(
+                this.getExitMessage({
+                  pid: subprocess.pid,
+                  signalCode,
+                  exitCode,
+                }),
+                { cause: error },
+              );
+            }
+          },
+          ...options,
+        }),
+      ];
     }
   }
 
@@ -125,10 +131,9 @@ export class ClusterRunner {
     }
 
     for (let i = 0; i < this.numCPUs; i++) {
-      this.subprocessList.push([
-        { command, ...options },
+      this.subprocessList.push(
         await this.startSubprocess(i, { command, ...options }),
-      ]);
+      );
     }
 
     if (reloadSignal) {
@@ -147,10 +152,7 @@ export class ClusterRunner {
       p.kill();
       await p.exited;
 
-      this.subprocessList[i] = [
-        options,
-        await this.startSubprocess(i, options),
-      ];
+      this.subprocessList[i] = await this.startSubprocess(i, options);
     }
   }
 }
