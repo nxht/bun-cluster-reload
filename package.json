@@ -24,15 +24,14 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/eslint": "^8.56.10",
-    "@types/eslint__js": "^8.42.3",
-    "dprint": "^0.45.1",
-    "eslint": "^8.57.0",
-    "pino": "^8.21.0",
-    "pino-pretty": "^11.1.0",
-    "typescript-eslint": "^7.12.0"
+    "@biomejs/biome": "^1.8.0",
+    "pino": "^9.1.0",
+    "pino-pretty": "^11.1.0"
   },
   "peerDependencies": {
     "typescript": "^5.4.2"
+  },
+  "trustedDependencies": [],
+  "dependencies": {
   }
 }
