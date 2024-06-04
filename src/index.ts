@@ -148,10 +148,26 @@ export class ClusterRunner {
   async reload() {
     for (let i = 0; i < this.subprocessList.length; i++) {
       const [options, p] = this.subprocessList[i];
-      p.kill();
-      await p.exited;
+      try {
+        p.kill();
+        await p.exited;
+      } catch(e) {
+        this.logger.warn(`Failed on killing process: ${p.pid}`)
+      }
 
       this.subprocessList[i] = await this.startSubprocess(i, options);
+    }
+  }
+
+  async terminate() {
+    for (let i = 0; i < this.subprocessList.length; i++) {
+      const [options, p] = this.subprocessList[i];
+      try {
+        p.kill();
+        await p.exited;
+      } catch(e) {
+        this.logger.warn(`Failed on killing process: ${p.pid}`)
+      }
     }
   }
 }
