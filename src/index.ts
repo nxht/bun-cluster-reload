@@ -124,7 +124,7 @@ export class ClusterRunner {
       reloadSignal?: NodeJS.Signals;
       updateEnv?: boolean;
     } & SubprocessOption,
-  ) {
+  ): Promise<[SubprocessOption, Subprocess][]> {
     if (updateEnv && !options.env) {
       options.env = {};
     }
@@ -143,9 +143,11 @@ export class ClusterRunner {
         this.reload().catch(() => null);
       });
     }
+
+    return this.subprocessList
   }
 
-  async reload() {
+  async reload(): Promise<[SubprocessOption, Subprocess][]>  {
     for (let i = 0; i < this.subprocessList.length; i++) {
       const [options, p] = this.subprocessList[i];
       try {
@@ -157,6 +159,7 @@ export class ClusterRunner {
 
       this.subprocessList[i] = await this.startSubprocess(i, options);
     }
+    return this.subprocessList
   }
 
   async terminate() {
