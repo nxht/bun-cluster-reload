@@ -13,10 +13,10 @@ await clusterRunner.start({
   updateEnv: false,
 });
 await Bun.sleep(100);
-const process = clusterRunner.subprocessList[0];
-process?.[1]?.kill();
-await process?.[1]?.exited;
-console.error(`process: ${process?.[1]?.pid} pre-killed`);
+const { p } = clusterRunner.subprocessList[0];
+p?.kill();
+await p?.exited;
+console.error(`process: ${p?.pid} pre-killed`);
 await Bun.sleep(100);
 
 await clusterRunner.reload();

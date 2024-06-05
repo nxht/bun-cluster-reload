@@ -23,7 +23,7 @@ describe('normal', async () => {
       updateEnv: false,
     });
 
-    startProcessList = subprocessList.map(([_options, p]) => p);
+    startProcessList = subprocessList.map(({ p }) => p);
   });
 
   afterEach(async () => await clusterRunner.terminate());
@@ -44,8 +44,8 @@ describe('normal', async () => {
     }
 
     expect(reloadProcessList).toBeArrayOfSize(2);
-    for (const p of reloadProcessList) {
-      expect(p?.[1]?.killed).toBe(false);
+    for (const { p } of reloadProcessList) {
+      expect(p?.killed).toBe(false);
     }
   });
 
@@ -57,8 +57,8 @@ describe('normal', async () => {
 
     const reloadProcessList = await clusterRunner.reload();
     expect(reloadProcessList).toBeArrayOfSize(2);
-    for (const p of reloadProcessList) {
-      expect(p?.[1]?.killed).toBe(false);
+    for (const { p } of reloadProcessList) {
+      expect(p?.killed).toBe(false);
     }
   });
 
@@ -70,8 +70,8 @@ describe('normal', async () => {
 
     const reloadProcessList = await clusterRunner.reload();
     expect(reloadProcessList).toBeArrayOfSize(2);
-    for (const p of reloadProcessList) {
-      expect(p?.[1]?.killed).toBe(false);
+    for (const { p } of reloadProcessList) {
+      expect(p?.killed).toBe(false);
     }
   });
 });

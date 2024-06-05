@@ -13,7 +13,10 @@ export type SubprocessOption = {
   command: string[];
 } & SpawnOptions.OptionsObject;
 
-type SubprocessList = [SubprocessOption, Subprocess | null][];
+export type SubprocessWithOption = {
+  p: Subprocess | null;
+  options: SubprocessOption;
+};
 
 export class ClusterRunner {
   logger: LogWrapper;
@@ -21,7 +24,7 @@ export class ClusterRunner {
   readonly autorestart?: boolean;
   readonly waitReady?: boolean;
 
-  subprocessList: SubprocessList = [];
+  subprocessList: SubprocessWithOption[] = [];
 
   constructor({ logger, numCPUs, ...options }: ClusterRunnerOptions) {
     this.logger = new LogWrapper(logger);
@@ -55,63 +58,42 @@ export class ClusterRunner {
   async startSubprocess(
     i: number,
     options: SubprocessOption,
-  ): Promise<[SubprocessOption, Subprocess]> {
+  ): Promise<SubprocessWithOption> {
     const { command, stdin, stdout, stderr, ...others } = options;
 
-    if (this.waitReady) {
-      return new Promise<[SubprocessOption, Subprocess]>((resolve, reject) =>
-        Bun.spawn(command, {
-          stdio: [stdin ?? 'inherit', stdout ?? 'inherit', stderr ?? 'inherit'],
-          ipc: (message, subprocess) => {
-            if (this.waitReady) {
-              if (message === 'ready') {
-                subprocess.exited
-                  .then(async (exitCode) => {
-                    if (exitCode !== 0) {
-                      this.logger.error(
-                        this.getExitMessage({
-                          pid: subprocess.pid,
-                          signalCode: subprocess.signalCode,
-                          exitCode,
-                        }),
-                      );
-
-                      if (this.autorestart && !subprocess.signalCode) {
-                        this.subprocessList[i] = await this.startSubprocess(
-                          i,
-                          options,
-                        );
-                      }
-                    }
-                  })
-                  .catch(() => null);
-
-                resolve([{ ...options }, subprocess]);
-              }
-            }
-          },
-          onExit: (subprocess, exitCode, signalCode, error) => {
-            if (exitCode !== 0) {
-              reject(
-                new Error(
-                  this.getExitMessage({
-                    pid: subprocess.pid,
-                    signalCode,
-                    exitCode,
-                  }),
-                  { cause: error },
-                ),
-              );
-            }
-          },
-          ...others,
-        }),
-      );
-    }
-
-    return new Promise<[SubprocessOption, Subprocess]>((resolve, reject) => {
+    return new Promise<SubprocessWithOption>((resolve, reject) => {
       const subprocess = Bun.spawn(command, {
         stdio: [stdin ?? 'inherit', stdout ?? 'inherit', stderr ?? 'inherit'],
+        ipc: this.waitReady
+          ? (message, subprocess) => {
+              if (this.waitReady) {
+                if (message === 'ready') {
+                  subprocess.exited
+                    .then(async (exitCode) => {
+                      if (exitCode !== 0) {
+                        this.logger.error(
+                          this.getExitMessage({
+                            pid: subprocess.pid,
+                            signalCode: subprocess.signalCode,
+                            exitCode,
+                          }),
+                        );
+
+                        if (this.autorestart && !subprocess.signalCode) {
+                          this.subprocessList[i] = await this.startSubprocess(
+                            i,
+                            options,
+                          );
+                        }
+                      }
+                    })
+                    .catch(() => null);
+
+                  resolve({ options, p: subprocess });
+                }
+              }
+            }
+          : undefined,
         onExit: (subprocess, exitCode, signalCode, error) => {
           if (exitCode !== 0) {
             reject(
@@ -128,7 +110,9 @@ export class ClusterRunner {
         },
         ...others,
       });
-      resolve([options, subprocess]);
+      if (!this.waitReady) {
+        resolve({ options, p: subprocess });
+      }
     });
   }
 
@@ -139,7 +123,7 @@ export class ClusterRunner {
   }: {
     reloadSignal?: NodeJS.Signals;
     updateEnv?: boolean;
-  } & SubprocessOption): Promise<SubprocessList> {
+  } & SubprocessOption): Promise<SubprocessWithOption[]> {
     if (updateEnv && !options.env) {
       options.env = {};
     }
@@ -165,9 +149,9 @@ export class ClusterRunner {
     return this.subprocessList;
   }
 
-  async reload(): Promise<SubprocessList> {
+  async reload(): Promise<SubprocessWithOption[]> {
     for (let i = 0; i < this.subprocessList.length; i++) {
-      const [options, p] = this.subprocessList[i];
+      const { p, options } = this.subprocessList[i];
       if (p) {
         try {
           p.kill();
@@ -184,7 +168,7 @@ export class ClusterRunner {
   }
 
   async terminate() {
-    for (const [_options, p] of this.subprocessList) {
+    for (const { p } of this.subprocessList) {
       if (p) {
         try {
           p.kill();
