@@ -9,17 +9,22 @@ async function testFetch() {
   expect(data).toBe('Hello World!');
 }
 
+let clusterRunner: ClusterRunner;
+
+beforeEach(async () => {
+  clusterRunner = new ClusterRunner({
+    numCPUs: 2,
+    autorestart: true,
+    waitReady: true,
+  });
+});
+
+afterEach(async () => await clusterRunner.terminate());
+
 describe('waitReady true', async () => {
-  let clusterRunner: ClusterRunner;
-  let startProcessList: Subprocess[];
+  let startProcessList: (Subprocess | null)[];
 
   beforeEach(async () => {
-    clusterRunner = new ClusterRunner({
-      numCPUs: 2,
-      autorestart: true,
-      waitReady: true,
-    });
-
     const subprocessList = await clusterRunner.start({
       command: ['bun', 'test/app.ts'],
       reloadSignal: 'SIGHUP',
@@ -29,12 +34,10 @@ describe('waitReady true', async () => {
     startProcessList = subprocessList.map(([_options, p]) => p);
   });
 
-  afterEach(async () => await clusterRunner.terminate());
-
   test('start check', async () => {
     expect(startProcessList).toBeArrayOfSize(2);
     for (const p of startProcessList) {
-      expect(p.killed).toBe(false);
+      expect(p?.killed).toBe(false);
     }
     await testFetch();
   });
@@ -43,12 +46,12 @@ describe('waitReady true', async () => {
     const reloadProcessList = await clusterRunner.reload();
 
     for (const p of startProcessList) {
-      expect(p.killed).toBe(true);
+      expect(p?.killed).toBe(true);
     }
 
     expect(reloadProcessList).toBeArrayOfSize(2);
     for (const p of reloadProcessList) {
-      expect(p[1].killed).toBe(false);
+      expect(p?.[1]?.killed).toBe(false);
     }
 
     await testFetch();
@@ -56,16 +59,19 @@ describe('waitReady true', async () => {
 
   test('reload with 1 killed', async () => {
     const p = startProcessList[0];
+    expect(p).not.toBeNull();
 
-    p.kill();
-    await p.exited;
+    if (p) {
+      p.kill();
+      await p.exited;
+    }
 
     await testFetch();
 
     const reloadProcessList = await clusterRunner.reload();
     expect(reloadProcessList).toBeArrayOfSize(2);
     for (const p of reloadProcessList) {
-      expect(p[1].killed).toBe(false);
+      expect(p?.[1]?.killed).toBe(false);
     }
 
     await testFetch();
@@ -73,8 +79,10 @@ describe('waitReady true', async () => {
 
   test('reload with all killed', async () => {
     for (const p of startProcessList) {
-      p.kill();
-      await p.exited;
+      if (p) {
+        p.kill();
+        await p.exited;
+      }
     }
 
     expect(
@@ -84,9 +92,28 @@ describe('waitReady true', async () => {
     const reloadProcessList = await clusterRunner.reload();
     expect(reloadProcessList).toBeArrayOfSize(2);
     for (const p of reloadProcessList) {
-      expect(p[1].killed).toBe(false);
+      expect(p?.[1]?.killed).toBe(false);
     }
 
     await testFetch();
+  });
+});
+
+describe('error case', async () => {
+  test('error case', async () => {
+    expect(
+      clusterRunner.start({
+        command: ['bun', 'test/app-error.ts'],
+        reloadSignal: 'SIGHUP',
+        stdout: 'ignore',
+        stderr: 'ignore',
+        updateEnv: false,
+      }),
+    ).rejects.toThrowError();
+
+    expect(clusterRunner.subprocessList).toBeArrayOfSize(1);
+    for (const [options, p] of clusterRunner.subprocessList) {
+      expect(p?.killed).toBe(true)
+    }
   });
 });
