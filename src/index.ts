@@ -9,7 +9,9 @@ export type ClusterRunnerOptions = {
   waitReady?: boolean;
 };
 
-type SubprocessOption = { command: string[] } & SpawnOptions.OptionsObject;
+export type SubprocessOption = {
+  command: string[];
+} & SpawnOptions.OptionsObject;
 
 export class ClusterRunner {
   logger: LogWrapper;
@@ -32,17 +34,20 @@ export class ClusterRunner {
     this.waitReady = options.waitReady ?? true;
   }
 
-  getExitMessage(
-    { pid, signalCode, exitCode }: {
-      pid: number;
-      signalCode: NodeJS.Signals | number | null;
-      exitCode: number | null;
-    },
-  ) {
-    return `Process ${pid}`
-      + (signalCode
+  getExitMessage({
+    pid,
+    signalCode,
+    exitCode,
+  }: {
+    pid: number;
+    signalCode: NodeJS.Signals | number | null;
+    exitCode: number | null;
+  }) {
+    return `Process ${pid}${
+      signalCode
         ? ` terminated with signal ${signalCode}`
-        : ` failed with exit code ${exitCode}`);
+        : ` failed with exit code ${exitCode}`
+    }`;
   }
 
   async startSubprocess(
@@ -56,24 +61,26 @@ export class ClusterRunner {
           ipc: (message, subprocess) => {
             if (this.waitReady) {
               if (message === 'ready') {
-                subprocess.exited.then(async (exitCode) => {
-                  if (exitCode !== 0) {
-                    this.logger.error(
-                      this.getExitMessage({
-                        pid: subprocess.pid,
-                        signalCode: subprocess.signalCode,
-                        exitCode,
-                      }),
-                    );
+                subprocess.exited
+                  .then(async (exitCode) => {
+                    if (exitCode !== 0) {
+                      this.logger.error(
+                        this.getExitMessage({
+                          pid: subprocess.pid,
+                          signalCode: subprocess.signalCode,
+                          exitCode,
+                        }),
+                      );
 
-                    if (this.autorestart && !subprocess.signalCode) {
-                      this.subprocessList[i] = await this.startSubprocess(i, {
-                        command,
-                        ...options,
-                      });
+                      if (this.autorestart && !subprocess.signalCode) {
+                        this.subprocessList[i] = await this.startSubprocess(i, {
+                          command,
+                          ...options,
+                        });
+                      }
                     }
-                  }
-                }).catch(() => null);
+                  })
+                  .catch(() => null);
 
                 resolve([{ command, ...options }, subprocess]);
               }
@@ -94,37 +101,39 @@ export class ClusterRunner {
             }
           },
           ...options,
-        })
-      );
-    } else {
-      return [
-        { command, ...options },
-        Bun.spawn(command, {
-          stdio: ['inherit', 'inherit', 'inherit'],
-          onExit: (subprocess, exitCode, signalCode, error) => {
-            if (exitCode !== 0) {
-              throw new Error(
-                this.getExitMessage({
-                  pid: subprocess.pid,
-                  signalCode,
-                  exitCode,
-                }),
-                { cause: error },
-              );
-            }
-          },
-          ...options,
         }),
-      ];
+      );
     }
+    return [
+      { command, ...options },
+      Bun.spawn(command, {
+        stdio: ['inherit', 'inherit', 'inherit'],
+        onExit: (subprocess, exitCode, signalCode, error) => {
+          if (exitCode !== 0) {
+            throw new Error(
+              this.getExitMessage({
+                pid: subprocess.pid,
+                signalCode,
+                exitCode,
+              }),
+              { cause: error },
+            );
+          }
+        },
+        ...options,
+      }),
+    ];
   }
 
-  async start(
-    { command, reloadSignal, updateEnv, ...options }: {
-      reloadSignal?: NodeJS.Signals;
-      updateEnv?: boolean;
-    } & SubprocessOption,
-  ): Promise<[SubprocessOption, Subprocess][]> {
+  async start({
+    command,
+    reloadSignal,
+    updateEnv,
+    ...options
+  }: {
+    reloadSignal?: NodeJS.Signals;
+    updateEnv?: boolean;
+  } & SubprocessOption): Promise<[SubprocessOption, Subprocess][]> {
     if (updateEnv && !options.env) {
       options.env = {};
     }
@@ -144,32 +153,31 @@ export class ClusterRunner {
       });
     }
 
-    return this.subprocessList
+    return this.subprocessList;
   }
 
-  async reload(): Promise<[SubprocessOption, Subprocess][]>  {
+  async reload(): Promise<[SubprocessOption, Subprocess][]> {
     for (let i = 0; i < this.subprocessList.length; i++) {
       const [options, p] = this.subprocessList[i];
       try {
         p.kill();
         await p.exited;
-      } catch(e) {
-        this.logger.warn(`Failed on killing process: ${p.pid}`)
+      } catch (e) {
+        this.logger.warn(`Failed on killing process: ${p.pid}`);
       }
 
       this.subprocessList[i] = await this.startSubprocess(i, options);
     }
-    return this.subprocessList
+    return this.subprocessList;
   }
 
   async terminate() {
-    for (let i = 0; i < this.subprocessList.length; i++) {
-      const [options, p] = this.subprocessList[i];
+    for (const [options, p] of this.subprocessList) {
       try {
         p.kill();
         await p.exited;
-      } catch(e) {
-        this.logger.warn(`Failed on killing process: ${p.pid}`)
+      } catch (e) {
+        this.logger.warn(`Failed on killing process: ${p.pid}`);
       }
     }
   }

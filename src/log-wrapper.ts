@@ -1,5 +1,5 @@
 import { debuglog, type DebugLogger } from 'node:util';
-import { type Logger as PinoLogger } from 'pino';
+import type { Logger as PinoLogger } from 'pino';
 
 export type Logger = PinoLogger | DebugLogger | Console;
 
@@ -17,7 +17,7 @@ export class LogWrapper {
       this.logger(msg);
     }
   }
-  
+
   info(msg: string) {
     if ('info' in this.logger) {
       this.logger.info(msg);
@@ -25,7 +25,6 @@ export class LogWrapper {
       this.logger(msg);
     }
   }
-
 
   warn(msg: string) {
     if ('warn' in this.logger) {
