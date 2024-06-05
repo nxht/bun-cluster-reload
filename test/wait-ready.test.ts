@@ -111,7 +111,7 @@ test('error', async () => {
   ).rejects.toThrowError();
 
   expect(clusterRunner.subprocessList).toBeArrayOfSize(1);
-  for (const [options, p] of clusterRunner.subprocessList) {
+  for (const [_options, p] of clusterRunner.subprocessList) {
     expect(p?.killed).toBe(true);
   }
 });

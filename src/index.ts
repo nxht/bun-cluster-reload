@@ -172,7 +172,7 @@ export class ClusterRunner {
         try {
           p.kill();
           await p.exited;
-        } catch (e) {
+        } catch (_e) {
           this.logger.warn(`Failed on killing process: ${p.pid}`);
         }
       }
@@ -184,12 +184,12 @@ export class ClusterRunner {
   }
 
   async terminate() {
-    for (const [options, p] of this.subprocessList) {
+    for (const [_options, p] of this.subprocessList) {
       if (p) {
         try {
           p.kill();
           await p.exited;
-        } catch (e) {
+        } catch (_e) {
           this.logger.warn(`Failed on killing process: ${p.pid}`);
         }
       }
