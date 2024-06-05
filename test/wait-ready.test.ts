@@ -21,7 +21,7 @@ beforeEach(async () => {
 
 afterEach(async () => await clusterRunner.terminate());
 
-describe('waitReady true', async () => {
+describe('normal', async () => {
   let startProcessList: (Subprocess | null)[];
 
   beforeEach(async () => {
@@ -99,21 +99,19 @@ describe('waitReady true', async () => {
   });
 });
 
-describe('error case', async () => {
-  test('error case', async () => {
-    expect(
-      clusterRunner.start({
-        command: ['bun', 'test/app-error.ts'],
-        reloadSignal: 'SIGHUP',
-        stdout: 'ignore',
-        stderr: 'ignore',
-        updateEnv: false,
-      }),
-    ).rejects.toThrowError();
+test('error', async () => {
+  expect(
+    clusterRunner.start({
+      command: ['bun', 'test/app-error.ts'],
+      reloadSignal: 'SIGHUP',
+      stdout: 'ignore',
+      stderr: 'ignore',
+      updateEnv: false,
+    }),
+  ).rejects.toThrowError();
 
-    expect(clusterRunner.subprocessList).toBeArrayOfSize(1);
-    for (const [options, p] of clusterRunner.subprocessList) {
-      expect(p?.killed).toBe(true)
-    }
-  });
+  expect(clusterRunner.subprocessList).toBeArrayOfSize(1);
+  for (const [options, p] of clusterRunner.subprocessList) {
+    expect(p?.killed).toBe(true);
+  }
 });

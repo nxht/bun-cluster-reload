@@ -2,17 +2,21 @@ import type { Subprocess } from 'bun';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { ClusterRunner } from '../src/index';
 
-describe('waitReady false', async () => {
-  let clusterRunner: ClusterRunner;
+let clusterRunner: ClusterRunner;
+
+beforeEach(async () => {
+  clusterRunner = new ClusterRunner({
+    numCPUs: 2,
+    autorestart: true,
+    waitReady: false,
+  });
+});
+afterEach(async () => await clusterRunner.terminate());
+
+describe('normal', async () => {
   let startProcessList: (Subprocess | null)[];
 
   beforeEach(async () => {
-    clusterRunner = new ClusterRunner({
-      numCPUs: 2,
-      autorestart: true,
-      waitReady: false,
-    });
-
     const subprocessList = await clusterRunner.start({
       command: ['bun', 'test/app.ts'],
       reloadSignal: 'SIGHUP',
