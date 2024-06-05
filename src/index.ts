@@ -104,25 +104,28 @@ export class ClusterRunner {
         }),
       );
     }
-    return [
-      { command, ...options },
-      Bun.spawn(command, {
+
+    return new Promise<[SubprocessOption, Subprocess]>((resolve, reject) => {
+      const subprocess = Bun.spawn(command, {
         stdio: ['inherit', 'inherit', 'inherit'],
         onExit: (subprocess, exitCode, signalCode, error) => {
           if (exitCode !== 0) {
-            throw new Error(
-              this.getExitMessage({
-                pid: subprocess.pid,
-                signalCode,
-                exitCode,
-              }),
-              { cause: error },
+            reject(
+              new Error(
+                this.getExitMessage({
+                  pid: subprocess.pid,
+                  signalCode,
+                  exitCode,
+                }),
+                { cause: error },
+              ),
             );
           }
         },
         ...options,
-      }),
-    ];
+      });
+      resolve([{ command, ...options }, subprocess]);
+    });
   }
 
   async start({
