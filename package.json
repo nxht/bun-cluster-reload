@@ -1,8 +1,10 @@
 {
   "name": "bun-cluster-reload",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "PM2-like cluster with reload for bun",
-  "keywords": ["bun"],
+  "keywords": [
+    "bun"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nxht/bun-cluster-reload.git"
